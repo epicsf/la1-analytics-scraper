@@ -1,0 +1,48 @@
+<html>
+  <head>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  </head>
+  <title>
+    Data - {{ name }} - {{ start_time }} - {{ event_id }}
+  </title>
+  <body>
+    <h2>{{ name }} - {{ start_time }}</h2>
+    <p>Event ID: {{ event_id }}</p>
+    <p>Unique IP Addresses: {{ distinct_ips }}</p>
+    <p>Unique Clients: {{ distinct_clients }}</p>
+    {% for item in charts %}
+    <div id="chart_{{loop.index}}" style="width:100%;height:300px;"></div>
+    {% endfor %}
+  </body>
+    Epic Data - {{ name }} - {{ start_time }} - {{ event_id }}
+
+  <script>
+    let chart = null;
+    {% for item in charts %}
+    chart = document.getElementById("chart_{{loop.index}}");
+    Plotly.plot(
+      chart,
+      [
+        {
+          x: {{ item['x'] }},
+          {% if item['y'] != '' %}y: {{ item['y'] }},{% endif %}
+          type: '{{ item['chart_type'] }}'
+        }
+      ],
+      {
+        title: {
+          text: '{{ item['title'] }}',
+          font: {
+            family: "Arial",
+            size: 20
+          },
+          xref: "paper",
+          x: 0
+        }
+      }
+    );
+    {% endfor %}
+  </script>
+
+
+</html>
