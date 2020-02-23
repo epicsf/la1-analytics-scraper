@@ -78,6 +78,7 @@ Views: {event['public_info']['views']}""",
 
 def render_html_report(event):
     return template.render(
+        prefix=EMAIL_SUBJECT_PREFIX,
         name=event["name"],
         start_time=event["name"],
         event_id=event["name"],
