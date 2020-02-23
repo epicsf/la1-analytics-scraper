@@ -22,7 +22,7 @@ import smtplib
 # the JSON and HTML files to be written.
 # The template HTML file should also be placed in this
 # directory.
-DIR = secrets.DIR
+DIR = secrets.DIR if hasattr(secrets, "DIR") else os.getcwd()
 # This is the name of the JSON file that you'd like to write to
 FILENAME = secrets.FILENAME
 # This is the username for your LA1 login
@@ -30,20 +30,47 @@ USERNAME = secrets.USERNAME
 # This is the password for your LA1 login
 PASSWORD = secrets.PASSWORD
 # Email address from which you'd like to send viewer information
-FROM_EMAIL = secrets.FROM_EMAIL
+FROM_EMAIL = secrets.FROM_EMAIL if hasattr(secrets, "FROM_EMAIL") else None
+# Readable name for who is sending the report (e.g. Production Team)
+FROM_NAME = secrets.FROM_NAME
 # Email address to which you'd like to send viewer information
-TO_EMAIL = secrets.TO_EMAIL
+TO_EMAIL = secrets.TO_EMAIL if hasattr(secrets, "TO_EMAIL") else None
+# Prefix to the subject in email reports
+EMAIL_SUBJECT_PREFIX = secrets.EMAIL_SUBJECT_PREFIX
+
+if not USERNAME or not PASSWORD:
+    raise Exception("Username and password to LA1 required.")
+print(
+    f"""Directory in use: {DIR}
+Filename in use: {FILENAME}
+"""
+)
+
+if not FROM_EMAIL or not TO_EMAIL:
+    print("Skipping email since from or to emails are not provided.")
+else:
+    print("Email Template")
+    print(
+        f"""From: {FROM_NAME} <{FROM_EMAIL}>
+To: {TO_EMAIL}
+Subject: {EMAIL_SUBJECT_PREFIX} [EVENT NAME WILL GO HERE]
+"""
+    )
 
 
 def send_email(event):
+    # This server is Gmail's Restricted SMTP Server and will only work for
+    # sending emails to G Suite or Gmail accounts.
+    # See https://support.google.com/a/answer/176600?hl=en
     server = smtplib.SMTP("aspmx.l.google.com", 25)
     server.sendmail(
         FROM_EMAIL,
         TO_EMAIL,
-        f"""From: Production Analytics <{FROM_EMAIL}>
+        f"""From: {FROM_NAME} <{FROM_EMAIL}>
 To: {TO_EMAIL}
-Subject: [Epic Production Analytics] {event['name']}, {event['start_time']}
+Subject: {EMAIL_SUBJECT_PREFIX}
 
+Event Time:  {event['name']}, {event['start_time']}
 Unique Viewers: {event['public_info']['totalViewers']}
 Views: {event['public_info']['views']}""",
     )
@@ -225,8 +252,11 @@ for event in data["events"]:
 
     # Do not send emails for Social Media events, since those have no
     # viewer information from LA1
-    if "Social Media" not in event["name"]:
+    if "Social Media" not in event["name"] and FROM_EMAIL and TO_EMAIL:
         send_email(event)
+
+    if not os.path.exists(os.path.join(DIR, "outputs")):
+        os.mkdir(os.path.join(DIR, "outputs"))
 
     with open(
         os.path.join(
