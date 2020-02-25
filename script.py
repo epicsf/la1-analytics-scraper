@@ -17,12 +17,15 @@ import requests
 import secrets
 import smtplib
 
-
 # This is the absolute path to the directory where you'd like
 # the JSON and HTML files to be written.
 # The template HTML file should also be placed in this
 # directory.
-DIR = secrets.DIR if hasattr(secrets, "DIR") else os.getcwd()
+DIR = (
+    secrets.DIR
+    if hasattr(secrets, "DIR")
+    else os.path.dirname(os.path.abspath(__file__))
+)
 # This is the name of the JSON file that you'd like to write to
 FILENAME = secrets.FILENAME
 # This is the username for your LA1 login
@@ -68,7 +71,7 @@ def send_email(event):
         TO_EMAIL,
         f"""From: {FROM_NAME} <{FROM_EMAIL}>
 To: {TO_EMAIL}
-Subject: {EMAIL_SUBJECT_PREFIX}
+Subject: {EMAIL_SUBJECT_PREFIX} {event['name']}
 
 Event Time:  {event['name']}, {event['start_time']}
 Unique Viewers: {event['public_info']['totalViewers']}
@@ -267,4 +270,3 @@ for event in data["events"]:
         "w",
     ) as f:
         f.write(render_html_report(event))
-
