@@ -29,7 +29,12 @@ Upon running it will write its outputs into your specified directory (`./outputs
 
 ### Summary Email
 
+<img width="739" alt="Summary email screenshot" src="https://user-images.githubusercontent.com/21501/75594270-087aec80-5a3d-11ea-9bd8-8fc2dbd4c6ef.png">
+
 ### HTML file output with data visualizations
+
+<img alt="HTML file screenshot" src="https://user-images.githubusercontent.com/21501/75594296-13358180-5a3d-11ea-83a1-00f5909c9134.png">
+
 
 ## Caveats
 
