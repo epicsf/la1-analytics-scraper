@@ -39,8 +39,6 @@ You will likely see different numbers in the email summary than in the HTML file
 
 We've also noticed discrepancies over time, i.e. the viewer counts don't seem to be static after the event ends. We've seen them continue to increment up in the days/weeks after. We don't allow re-playing our events so it's unclear why this would be.
 
-### Discrepancies 
-
 ### SMTP Server
 In the `send_email` function, we currently use [Gmail's Restricted SMTP Server](https://support.google.com/a/answer/176600?hl=en) to send email without having to provide any email login information, however this means the script can only send emails to Gmail or G Suite accounts. You can change these settings to your organization's SMTP server if you have one.
 
