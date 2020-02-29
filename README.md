@@ -1,16 +1,17 @@
 [LA1 Analytics Scraper](https://github.com/epicsf/la1-analytics-scraper)
 ================================================================================
 
-A Python script for downloading, storing, and emailing event analytics from Living As One. Our motivation was to store this data locally for our records, and maintain access after the LA1 event expires along with its the analytics data.
+A Python script for downloading, storing, and emailing event analytics from Living As One.
 
-We also wanted an automated way to email an analytics summary to our stakeholders.
+Our motivation was to store this data locally for our records, and maintain access after the LA1 event expires along with its the analytics data. We also wanted an automated way to email viewership statistics to relevant folks (admins, leadership) after each event.
+
 
 ## Setup
 
 We assume that you already have `python3` and `virtualenv` installed and that you have cloned or downloaded this repo.
 
 1. Run `pip3 install -r requirements.txt` to download the dependencies for this script.
-2. Fill in the configuration parameters as specified in the first lines of `script.py`.
+2. Make a copy of `example_secrets.py` named `secrets.py` and add your login credentials, to/from email address, and other config info.
 
 
 ## Usage
@@ -24,6 +25,7 @@ Upon running it will write its outputs into your specified directory (`./outputs
 2. Multiple HTML files (one for each event) with the summary analytics and some charts summarizing the detailed analytics (screenshot below).
 
 3. An email with the subject prefix, to address, and from address specified in your config file, containing the summary analytics for each event.
+
 
 ## Screenshots
 
