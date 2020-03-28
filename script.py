@@ -61,6 +61,16 @@ Subject: {EMAIL_SUBJECT_PREFIX} [EVENT NAME WILL GO HERE]
     )
 
 
+def get_median_watch_time(event):
+    """Computes the median watch time based on LA1-provided mapping from
+    watch times to number of unique viewers.
+    NOTE: This data is only available at 5 minute granularities."""
+    times = []
+    for m, v in event['geodata']['watchTimes'].items():
+        times += [int(m)] * v
+    return times[len(times) // 2]
+
+
 def send_email(event):
     # This server is Gmail's Restricted SMTP Server and will only work for
     # sending emails to G Suite or Gmail accounts.
@@ -80,6 +90,9 @@ Average Watch Time (mins): {event['public_info']['averageViewMinutes']}
 Total Watch Time (mins): {event['public_info']['watchTimeMinutes']}
 Unique Viewers 30+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
 Unique Viewers 60+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
+
+Median Watch Time* (mins): {get_median_watch_time(event)}
+*Experimental (computed and not provided directly by LA1)
 """,
     )
 
