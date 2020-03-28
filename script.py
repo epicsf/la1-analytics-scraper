@@ -83,16 +83,20 @@ def send_email(event):
 To: {TO_EMAIL}
 Subject: {EMAIL_SUBJECT_PREFIX} {event['name']}
 
-Event Time:  {event['name']}, {event['start_time']}
+Event: {event['name']}, {event['start_time']}
+
 Unique Viewers: {event['public_info']['uniqueViewers']}
 Views: {event['public_info']['views']}
+
 Average Watch Time (mins): {event['public_info']['averageViewMinutes']}
 Total Watch Time (mins): {event['public_info']['watchTimeMinutes']}
-Unique Viewers 30+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
-Unique Viewers 60+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
-
 Median Watch Time* (mins): {get_median_watch_time(event)}
-*Experimental (computed and not provided directly by LA1)
+
+30+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
+60+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
+
+
+* Experimental statistic (not provided directly by LA1, computed by us)
 """,
     )
 
