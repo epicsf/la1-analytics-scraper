@@ -49,8 +49,8 @@ We've also noticed discrepancies over time, i.e. the viewer counts don't seem to
 ### SMTP Server
 In the `send_email` function, we currently use [Gmail's Restricted SMTP Server](https://support.google.com/a/answer/176600?hl=en) to send email without having to provide any email login information, however this means the script can only send emails to Gmail or G Suite accounts. You can change these settings to your organization's SMTP server if you have one.
 
-### Social Media Events
-Streams to Facebook and YouTube do not have any analytics information, so we exclude events with `Social Media` in their name from the summary email. If your social media events are named something other than this, they won't be excluded and you'll get an empty analytics summary email for them.
+### Excluded Events
+Streams to Facebook and YouTube and test events do not generally have useful analytics information, so we exclude events with fewer than 5 viewers from the summary email. Their data will still be written to the JSON file.
 
 ### LA1 API Limits
 In one of the API requests we make to LA1, there is a `max=500` URL parameter. It's unclear whether that refers to the number of events returned or the number of detailed viewer analytics entries. If you have a large number of events or viewers, you should check to see that your data is not being truncated by this.
