@@ -78,6 +78,8 @@ Unique Viewers: {event['public_info']['uniqueViewers']}
 Views: {event['public_info']['views']}
 Average Watch Time (mins): {event['public_info']['averageViewMinutes']}
 Total Watch Time (mins): {event['public_info']['watchTimeMinutes']}
+Unique Viewers 30+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
+Unique Viewers 60+ mins: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
 """,
     )
 
@@ -166,6 +168,12 @@ for event in [e for e in events_request.json()]:
     )
     event_data["public_info"] = public_info.json()
 
+    geodata = requests.get(
+        f"https://central.livingasone.com/api_v2.svc/public/events/{uuid}/status/rep?geoData=true",
+        cookies=auth_request.cookies,
+    )
+    event_data["geodata"] = geodata.json()
+
     detailed_info = requests.get(
         f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents/{uuid}/export?max=500",
         cookies=auth_request.cookies,
@@ -205,7 +213,7 @@ for event in data["events"]:
     start_times = []
 
     for info in event["viewer_info"]:
-        if 'city' in info and 'state' in info:
+        if "city" in info and "state" in info:
             city_level[f"{info['city']}, {info['state']}"].append(info)
         resolution_level[f"_{info['resolution']}"].append(info)
         os_level[
@@ -259,9 +267,8 @@ for event in data["events"]:
         key=lambda x: -x[1],
     )
 
-    # Only send emails for CHOP events, since only those have
-    # viewer information from LA1
-    if "Social Media" not in event["name"] and FROM_EMAIL and TO_EMAIL:
+    # Only send emails for events with more than 5 viewers
+    if event["public_info"]["uniqueViewers"] > 5 and FROM_EMAIL and TO_EMAIL:
         send_email(event)
 
     if not os.path.exists(os.path.join(DIR, "outputs")):
