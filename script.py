@@ -61,6 +61,16 @@ Subject: {EMAIL_SUBJECT_PREFIX} [EVENT NAME WILL GO HERE]
     )
 
 
+def get_median_watch_time(event):
+    """Computes the median watch time based on LA1-provided mapping from
+    watch times to number of unique viewers.
+    NOTE: This data is only available at 5 minute granularities."""
+    times = []
+    for m, v in event['geodata']['watchTimes'].items():
+        times += [int(m)] * v
+    return times[len(times) // 2]
+
+
 def send_email(event):
     # This server is Gmail's Restricted SMTP Server and will only work for
     # sending emails to G Suite or Gmail accounts.
@@ -73,9 +83,21 @@ def send_email(event):
 To: {TO_EMAIL}
 Subject: {EMAIL_SUBJECT_PREFIX} {event['name']}
 
-Event Time:  {event['name']}, {event['start_time']}
-Unique Viewers: {event['public_info']['totalViewers']}
-Views: {event['public_info']['views']}""",
+Event: {event['name']}, {event['start_time']}
+
+Unique Viewers: {event['public_info']['uniqueViewers']}
+Views: {event['public_info']['views']}
+
+Average Watch Time (mins): {event['public_info']['averageViewMinutes']}
+Total Watch Time (mins): {event['public_info']['watchTimeMinutes']}
+Median Watch Time* (mins): {get_median_watch_time(event)}
+
+30+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
+60+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
+
+
+* Experimental statistic (not provided directly by LA1, computed by us)
+""",
     )
 
 
@@ -158,9 +180,16 @@ for event in [e for e in events_request.json()]:
     event_data["name"] = event["name"]
 
     public_info = requests.get(
-        f"https://central.livingasone.com/api_v2.svc/public/events/{uuid}/status/rep?geoData=true"
+        f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents/{uuid}/export/statistics",
+        cookies=auth_request.cookies,
     )
     event_data["public_info"] = public_info.json()
+
+    geodata = requests.get(
+        f"https://central.livingasone.com/api_v2.svc/public/events/{uuid}/status/rep?geoData=true",
+        cookies=auth_request.cookies,
+    )
+    event_data["geodata"] = geodata.json()
 
     detailed_info = requests.get(
         f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents/{uuid}/export?max=500",
@@ -201,7 +230,8 @@ for event in data["events"]:
     start_times = []
 
     for info in event["viewer_info"]:
-        city_level[f"{info['city']}, {info['state']}"].append(info)
+        if "city" in info and "state" in info:
+            city_level[f"{info['city']}, {info['state']}"].append(info)
         resolution_level[f"_{info['resolution']}"].append(info)
         os_level[
             f"{user_agent_parser.Parse(info['userAgent'])['os']['family']}"
@@ -254,9 +284,8 @@ for event in data["events"]:
         key=lambda x: -x[1],
     )
 
-    # Do not send emails for Social Media events, since those have no
-    # viewer information from LA1
-    if "Social Media" not in event["name"] and FROM_EMAIL and TO_EMAIL:
+    # Only send emails for events with more than 5 viewers
+    if event["public_info"]["uniqueViewers"] > 5 and FROM_EMAIL and TO_EMAIL:
         send_email(event)
 
     if not os.path.exists(os.path.join(DIR, "outputs")):
