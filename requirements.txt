@@ -1,6 +1,6 @@
 Jinja2==2.10.3
 requests==2.22.0
 ua-parser==0.8.0
-urllib3==1.25.7
+urllib3==1.26.5
 black==19.10b0
 flake8==3.7.9
