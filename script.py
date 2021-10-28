@@ -202,7 +202,7 @@ for event in [e for e in events_request.json()]:
 
 
 with open(os.path.join(DIR, FILENAME), "w") as f:
-    f.write(json.dumps(data))
+    f.write(json.dumps(data, indent="  "))
 
 
 with open(os.path.join(DIR, "template.html"), "r") as f:
