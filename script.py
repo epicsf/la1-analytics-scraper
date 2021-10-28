@@ -41,6 +41,8 @@ TO_EMAIL = secrets.TO_EMAIL if hasattr(secrets, "TO_EMAIL") else None
 # Prefix to the subject in email reports
 EMAIL_SUBJECT_PREFIX = secrets.EMAIL_SUBJECT_PREFIX
 
+API_HOSTNAME = "central.resi.io"
+
 if not USERNAME or not PASSWORD:
     raise Exception("Username and password to LA1 required.")
 print(
@@ -151,13 +153,13 @@ def render_html_report(event):
 
 
 auth_request = requests.post(
-    "https://central.livingasone.com/api/v3/login?newToken=true",
+    f"https://{API_HOSTNAME}/api/v3/login?newToken=true",
     json={"userName": USERNAME, "password": PASSWORD,},
 )
 
 customer_id = auth_request.json()["customerId"]
 events_request = requests.get(
-    f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents",
+    f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents",
     cookies=auth_request.cookies,
 )
 
@@ -180,19 +182,19 @@ for event in [e for e in events_request.json()]:
     event_data["name"] = event["name"]
 
     public_info = requests.get(
-        f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents/{uuid}/export/statistics",
+        f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents/{uuid}/export/statistics",
         cookies=auth_request.cookies,
     )
     event_data["public_info"] = public_info.json()
 
     geodata = requests.get(
-        f"https://central.livingasone.com/api_v2.svc/public/events/{uuid}/status/rep?geoData=true",
+        f"https://{API_HOSTNAME}/api_v2.svc/public/events/{uuid}/status/rep?geoData=true",
         cookies=auth_request.cookies,
     )
     event_data["geodata"] = geodata.json()
 
     detailed_info = requests.get(
-        f"https://central.livingasone.com/api/v3/customers/{customer_id}/webevents/{uuid}/export?max=500",
+        f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents/{uuid}/export?max=500",
         cookies=auth_request.cookies,
     )
     event_data["viewer_info"] = detailed_info.json()
