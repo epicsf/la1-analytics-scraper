@@ -63,93 +63,73 @@ Subject: {EMAIL_SUBJECT_PREFIX} [EVENT NAME WILL GO HERE]
     )
 
 
-def get_median_watch_time(event):
-    """Computes the median watch time based on LA1-provided mapping from
-    watch times to number of unique viewers.
-    NOTE: This data is only available at 5 minute granularities."""
-    times = []
-    for m, v in event['geodata']['watchTimes'].items():
-        times += [int(m)] * v
-    return times[len(times) // 2]
+
+
+def format_minutes(minutes):
+    """Format minutes as hours and minutes, e.g. '22h 27m' or '45m'"""
+    total_mins = int(minutes)
+    hours = total_mins // 60
+    mins = total_mins % 60
+    if hours > 0:
+        return f"{hours}h {mins}m"
+    else:
+        return f"{mins}m"
 
 
 def send_email(event):
     # This server is Gmail's Restricted SMTP Server and will only work for
     # sending emails to G Suite or Gmail accounts.
     # See https://support.google.com/a/answer/176600?hl=en
-    server = smtplib.SMTP("aspmx.l.google.com", 25)
-    server.sendmail(
-        FROM_EMAIL,
-        TO_EMAIL,
-        f"""From: {FROM_NAME} <{FROM_EMAIL}>
-To: {TO_EMAIL}
+
+    # Build city breakdown list
+    city_breakdown = ""
+    if "city_data" in event and event["city_data"]:
+        city_breakdown = "Viewer breakdown by city:\n"
+        for location in event["city_data"]:
+            city = location["city"]
+            region = location["region"]
+            viewers = location["none"]["viewers"]
+            city_breakdown += f"{city}, {region}: {viewers}\n"
+
+    avg_watch_time = format_minutes(event['public_info'].get('averageViewMinutes', 0))
+    median_watch_time = format_minutes(event['public_info'].get('medianWatchTime', 0) / 60)
+    total_watch_time = format_minutes(event['public_info'].get('totalTimeWatched', 0) / 60)
+
+    email_body = f"""From: {FROM_NAME} <{FROM_EMAIL if FROM_EMAIL else 'NOT_SET'}>
+To: {TO_EMAIL if TO_EMAIL else 'NOT_SET'}
 Subject: {EMAIL_SUBJECT_PREFIX} {event['name']}
 
-Event: {event['name']}, {event['start_time']}
+Event: {event['name']}
 
-Unique Viewers: {event['public_info']['uniqueViewers']}
-Views: {event['public_info']['views']}
+Unique Viewers: {int(event['public_info'].get('uniqueViewers', 0))}
+Views: {int(event['public_info'].get('views', 0))}
+New Viewers: {int(event['public_info'].get('newViewers', 0))}
+Return Viewers: {int(event['public_info'].get('returnViewers', 0))}
 
-Average Watch Time (mins): {event['public_info']['averageViewMinutes']}
-Total Watch Time (mins): {event['public_info']['watchTimeMinutes']}
-Median Watch Time* (mins): {get_median_watch_time(event)}
+Average Watch Time: {avg_watch_time}
+Median Watch Time: {median_watch_time}
+Total Watch Time: {total_watch_time}
 
-30+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 30)}
-60+ minute views: {sum(v for m, v in event['geodata']['watchTimes'].items() if int(m) >= 60)}
+Peak Concurrent Viewers: {int(event['public_info'].get('peakConcurrentViewers', 0))}
+
+{city_breakdown}"""
+
+    if not FROM_EMAIL or not TO_EMAIL:
+        print(f"\n{'='*80}")
+        print("Email sending disabled: FROM_EMAIL or TO_EMAIL not set")
+        print(f"FROM_EMAIL: {FROM_EMAIL if FROM_EMAIL else 'NOT_SET'}")
+        print(f"TO_EMAIL: {TO_EMAIL if TO_EMAIL else 'NOT_SET'}")
+        print(f"{'='*80}")
+        print("Would have sent the following email:")
+        print(f"{'-'*80}")
+        print(email_body)
+        print(f"{'='*80}\n")
+        return
+
+    server = smtplib.SMTP("aspmx.l.google.com", 25)
+    server.sendmail(FROM_EMAIL, TO_EMAIL, email_body)
 
 
-* Experimental statistic (not provided directly by LA1, computed by us)
-""",
-    )
-
-
-def render_html_report(event):
-    return template.render(
-        prefix=EMAIL_SUBJECT_PREFIX,
-        name=event["name"],
-        start_time=event["name"],
-        event_id=event["name"],
-        charts=[
-            {
-                "chart_type": "bar",
-                "x": [city for (city, _) in city_client_info],
-                "y": [data for (_, data) in city_client_info],
-                "title": "Unique Clients Per City",
-            },
-            {
-                "chart_type": "bar",
-                "x": [city for (city, _) in city_ip_info],
-                "y": [data for (_, data) in city_ip_info],
-                "title": "Unique IPs Per City",
-            },
-            {
-                "chart_type": "bar",
-                "x": [resolution for (resolution, _) in resolution_client_info],
-                "y": [data for (_, data) in resolution_client_info],
-                "title": "Unique Clients Per Resolution",
-            },
-            {
-                "chart_type": "bar",
-                "x": [os for (os, _) in os_client_info],
-                "y": [data for (_, data) in os_client_info],
-                "title": "Unique Clients Per OS",
-            },
-            {
-                "chart_type": "bar",
-                "x": [browser for (browser, _) in browser_client_info],
-                "y": [data for (_, data) in browser_client_info],
-                "title": "Unique Clients Per Browser",
-            },
-            {
-                "chart_type": "histogram",
-                "x": watch_times,
-                "y": "",
-                "title": "Watch Times (mins)",
-            },
-        ],
-        distinct_ips=len(set(ips)),
-        distinct_clients=len(set(client_ids)),
-    )
 
 
 auth_request = requests.post(
@@ -157,12 +137,26 @@ auth_request = requests.post(
     json={"userName": USERNAME, "password": PASSWORD,},
 )
 
-customer_id = auth_request.json()["customerId"]
-events_request = requests.get(
-    f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents",
-    cookies=auth_request.cookies,
-)
+auth_data = auth_request.json()
+customer_id = auth_data["customerId"]
+auth_token = auth_data["token"]
 
+# Set up headers for authenticated requests
+auth_headers = {"Authorization": f"X-Bearer {auth_token}"}
+
+# Calculate date range for last 14 days
+end_date = datetime.now()
+start_date = end_date - timedelta(days=14)
+start_date_str = start_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+# Get list of events from telemetry API
+telemetry_base_url = "https://telemetry.resi.io/api/v1"
+events_list_request = requests.get(
+    f"{telemetry_base_url}/customers/{customer_id}/webevents/statistics/views/allEvents?startDate={start_date_str}&endDate={end_date_str}&viewAllData=false&destinationType=embed",
+    headers=auth_headers,
+)
+events_list_request.raise_for_status()
 
 if FILENAME in os.listdir(DIR):
     with open(os.path.join(DIR, FILENAME), "r") as f:
@@ -170,49 +164,96 @@ if FILENAME in os.listdir(DIR):
 else:
     data = {"events": []}
 
+events_list = events_list_request.json()
+
+# Get event names from historicalwebevents endpoint
+event_ids = [e["eventId"] for e in events_list]
+if event_ids:
+    event_ids_params = "&".join([f"id={eid}" for eid in event_ids])
+    # Use cookies for central.resi.io API
+    historical_events_request = requests.get(
+        f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/historicalwebevents?{event_ids_params}",
+        cookies=auth_request.cookies,
+    )
+    historical_events_request.raise_for_status()
+    historical_events = {e["webEventId"]: e for e in historical_events_request.json()}
+else:
+    historical_events = {}
+
 new_uuids = []
-for event in [e for e in events_request.json()]:
-    uuid = event["uuid"]
+for event_info in events_list:
+    uuid = event_info["eventId"]
     if uuid in [e["event_id"] for e in data["events"]]:
         continue
     new_uuids.append(uuid)
+
     event_data = {}
     event_data["event_id"] = uuid
-    event_data["start_time"] = event["startTime"]
-    event_data["name"] = event["name"]
+    event_data["start_time"] = event_info["date"]
 
-    public_info = requests.get(
-        f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents/{uuid}/export/statistics",
-        cookies=auth_request.cookies,
-    )
-    event_data["public_info"] = public_info.json()
+    # Get event name from historical events
+    if uuid in historical_events:
+        event_data["name"] = historical_events[uuid]["name"]
+    else:
+        event_data["name"] = f"Event {uuid}"
 
-    geodata = requests.get(
-        f"https://{API_HOSTNAME}/api_v2.svc/public/events/{uuid}/status/rep?geoData=true",
-        cookies=auth_request.cookies,
-    )
-    event_data["geodata"] = geodata.json()
+    # Use the same broad date range for KPI requests (not the specific event times)
+    telemetry_params = f"destinationType=embed&endDate={end_date_str}&startDate={start_date_str}&eventId={uuid}"
 
-    detailed_info = requests.get(
-        f"https://{API_HOSTNAME}/api/v3/customers/{customer_id}/webevents/{uuid}/export?max=500",
-        cookies=auth_request.cookies,
-    )
-    event_data["viewer_info"] = detailed_info.json()
+    # Fetch all the statistics from the telemetry API
+    public_info = {}
+
+    stats = [
+        "uniqueViewers",
+        "views",
+        "avgWatchTime",
+        "medianWatchTime",
+        "totalTimeWatched",
+        "newViewers",
+        "returnViewers",
+        "peakConcurrentViewers"
+    ]
+
+    for stat in stats:
+        url = f"{telemetry_base_url}/customers/{customer_id}/kpis/{stat}?{telemetry_params}"
+        response = requests.get(url, headers=auth_headers)
+        response.raise_for_status()
+        stat_data = response.json()
+        # The API returns a list with a single object containing the value
+        if isinstance(stat_data, list) and len(stat_data) > 0:
+            public_info[stat] = stat_data[0].get("value", 0)
+        else:
+            public_info[stat] = 0
+
+    # Convert avgWatchTime to minutes (assuming it's in seconds)
+    if "avgWatchTime" in public_info:
+        public_info["averageViewMinutes"] = public_info["avgWatchTime"] / 60
+
+    # Convert totalTimeWatched to minutes (assuming it's in seconds)
+    if "totalTimeWatched" in public_info:
+        public_info["watchTimeMinutes"] = public_info["totalTimeWatched"] / 60
+
+    event_data["public_info"] = public_info
+
+    # Fetch city breakdown data
+    city_params = f"eventAnalytics=viewers&segmentBy=none&eventId={uuid}&startDate={start_date_str}&endDate={end_date_str}&isFullMonth=false&destinationType=embed&viewAllData=false"
+    city_url = f"{telemetry_base_url}/customers/{customer_id}/webevents/statistics/viewers/city?{city_params}"
+    city_response = requests.get(city_url, headers=auth_headers)
+    city_response.raise_for_status()
+    city_data = city_response.json()
+
+    # Sort locations by viewer count (highest to lowest)
+    if "locations" in city_data:
+        sorted_locations = sorted(
+            city_data["locations"],
+            key=lambda x: x["none"]["viewers"],
+            reverse=True
+        )
+        event_data["city_data"] = sorted_locations
+    else:
+        event_data["city_data"] = []
+
     data["events"].append(event_data)
-
-
-with open(os.path.join(DIR, FILENAME), "w") as f:
-    f.write(json.dumps(data, indent="  "))
-
-
-with open(os.path.join(DIR, "template.html"), "r") as f:
-    template = Template(f.read())
-
-
-def get_start_time(ts, watch_time_minutes):
-    ts = ts[: ts.index(".")]
-    date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
-    return date - timedelta(minutes=watch_time_minutes)
 
 
 for event in data["events"]:
@@ -220,84 +261,9 @@ for event in data["events"]:
     if event["event_id"] not in new_uuids:
         continue
 
-    charts = []
-
-    city_level = collections.defaultdict(list)
-    resolution_level = collections.defaultdict(list)
-    os_level = collections.defaultdict(list)
-    browser_level = collections.defaultdict(list)
-    ips = []
-    client_ids = []
-    watch_times = []
-    start_times = []
-
-    for info in event["viewer_info"]:
-        if "city" in info and "state" in info:
-            city_level[f"{info['city']}, {info['state']}"].append(info)
-        resolution_level[f"_{info['resolution']}"].append(info)
-        os_level[
-            f"{user_agent_parser.Parse(info['userAgent'])['os']['family']}"
-        ].append(info)
-        browser_level[
-            f"{user_agent_parser.Parse(info['userAgent'])['user_agent']['family']}"
-        ].append(info)
-        client_ids.append(info["clientId"])
-        ips.append(info["ipAddress"])
-        watch_times.append(info["watchTimeMinutes"])
-        start_times.append(
-            datetime.strftime(
-                get_start_time(info["timestamp"], info["watchTimeMinutes"]), "%H:%M:%S"
-            )
-        )
-
-    city_client_info = sorted(
-        [
-            (city, len(set(v["clientId"] for v in viewer_list)))
-            for city, viewer_list in city_level.items()
-        ],
-        key=lambda x: -x[1],
-    )
-    city_ip_info = sorted(
-        [
-            (city, len(set(v["ipAddress"] for v in viewer_list)))
-            for city, viewer_list in city_level.items()
-        ],
-        key=lambda x: -x[1],
-    )
-    resolution_client_info = sorted(
-        [
-            (resolution, len(set(v["clientId"] for v in viewer_list)))
-            for resolution, viewer_list in resolution_level.items()
-        ],
-        key=lambda x: -x[1],
-    )
-    os_client_info = sorted(
-        [
-            (os, len(set(v["clientId"] for v in viewer_list)))
-            for os, viewer_list in os_level.items()
-        ],
-        key=lambda x: -x[1],
-    )
-    browser_client_info = sorted(
-        [
-            (browser, len(set(v["clientId"] for v in viewer_list)))
-            for browser, viewer_list in browser_level.items()
-        ],
-        key=lambda x: -x[1],
-    )
-
     # Only send emails for events with more than 5 viewers
-    if event["public_info"]["uniqueViewers"] > 5 and FROM_EMAIL and TO_EMAIL:
+    if event["public_info"]["uniqueViewers"] > 5:
         send_email(event)
 
-    if not os.path.exists(os.path.join(DIR, "outputs")):
-        os.mkdir(os.path.join(DIR, "outputs"))
-
-    with open(
-        os.path.join(
-            DIR,
-            f"outputs/{event['name']}_{event['start_time']}_{event['event_id']}.html",
-        ),
-        "w",
-    ) as f:
-        f.write(render_html_report(event))
+with open(os.path.join(DIR, FILENAME), "w") as f:
+    f.write(json.dumps(data, indent="  "))

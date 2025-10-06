@@ -1,6 +1,6 @@
-Jinja2==2.10.3
-requests==2.22.0
-ua-parser==0.8.0
-urllib3==1.25.7
-black==19.10b0
-flake8==3.7.9
+Jinja2==3.1.4
+requests==2.32.3
+ua-parser==0.18.0
+urllib3==2.2.3
+black==24.8.0
+flake8==7.1.1
