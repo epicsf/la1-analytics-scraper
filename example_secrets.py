@@ -15,3 +15,6 @@ FROM_NAME = "Production Team Name"
 # Email address to which you'd like to send viewer information
 TO_EMAIL = "username@email.com"
 EMAIL_SUBJECT_PREFIX = "[Some Prefix]"
+# SMTP credentials for Gmail's SMTP relay option
+SMTP_USERNAME = "username@email.com"
+SMTP_PASSWORD = "app-specific-password"

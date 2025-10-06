@@ -40,6 +40,9 @@ FROM_NAME = secrets.FROM_NAME
 TO_EMAIL = secrets.TO_EMAIL if hasattr(secrets, "TO_EMAIL") else None
 # Prefix to the subject in email reports
 EMAIL_SUBJECT_PREFIX = secrets.EMAIL_SUBJECT_PREFIX
+# SMTP credentials for sending emails
+SMTP_USERNAME = secrets.SMTP_USERNAME if hasattr(secrets, "SMTP_USERNAME") else None
+SMTP_PASSWORD = secrets.SMTP_PASSWORD if hasattr(secrets, "SMTP_PASSWORD") else None
 
 API_HOSTNAME = "central.resi.io"
 
@@ -126,8 +129,12 @@ Peak Concurrent Viewers: {int(event['public_info'].get('peakConcurrentViewers', 
         print(f"{'='*80}\n")
         return
 
-    server = smtplib.SMTP("aspmx.l.google.com", 25)
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    if SMTP_USERNAME and SMTP_PASSWORD:
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
     server.sendmail(FROM_EMAIL, TO_EMAIL, email_body)
+    server.quit()
 
 
 
