@@ -89,10 +89,20 @@ def send_email(event):
     if "city_data" in event and event["city_data"]:
         city_breakdown = "Viewer breakdown by city:\n"
         for location in event["city_data"]:
-            city = location["city"]
-            region = location["region"]
+            city = location.get("city", "Unknown")
+            region = location.get("region")
+            country = location.get("country")
             viewers = location["none"]["viewers"]
-            city_breakdown += f"{city}, {region}: {viewers}\n"
+
+            # Format location string based on available data
+            if region:
+                location_str = f"{city}, {region}"
+            elif country:
+                location_str = f"{city}, {country}"
+            else:
+                location_str = city
+
+            city_breakdown += f"{location_str}: {viewers}\n"
 
     avg_watch_time = format_minutes(event['public_info'].get('averageViewMinutes', 0))
     median_watch_time = format_minutes(event['public_info'].get('medianWatchTime', 0) / 60)
